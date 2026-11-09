@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Desk Lamp — Appliance Model</title>
+  <style>
+    /* CSS controls appearance. JavaScript updates the lamp's state below. */
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 32px 20px; background: #eeeae3; color: #293c37;
+      font: 16px/1.6 system-ui, sans-serif; }
+    main { max-width: 800px; margin: auto; }
+    .eyebrow { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
+    h1 { margin: 5px 0 8px; font: 44px/1.15 Georgia, serif; }
+    .intro { margin: 0 0 24px; color: #58665f; }
+    .panel { background: #faf8f3; border: 1px solid #d6d8ce; border-radius: 22px; overflow: hidden; }
+    .scene { --light-color: #ffce77; --glow-opacity: 0; position: relative; height: 310px;
+      overflow: hidden; background: #293c37; }
+    .scene::after { content: ''; position: absolute; bottom: 0; width: 100%; height: 48px;
+      background: #405049; border-top: 1px solid #65756b; }
+    .glow { position: absolute; width: 280px; height: 220px; left: 50%; top: 68px;
+      transform: translateX(-50%); background: radial-gradient(ellipse, var(--light-color), transparent 69%);
+      opacity: var(--glow-opacity); transition: opacity .15s; }
+    .stem { position: absolute; width: 12px; height: 164px; top: 103px; left: calc(50% - 6px);
+      background: #a6b7a9; border-radius: 8px; }
+    .shade { position: absolute; width: 130px; height: 86px; top: 44px; left: calc(50% - 65px);
+      background: #d3dcca; clip-path: polygon(22% 0, 78% 0, 100% 100%, 0 100%); }
+    .bulb { position: absolute; width: 108px; height: 9px; left: calc(50% - 54px); top: 126px;
+      border-radius: 50%; background: var(--light-color); opacity: var(--glow-opacity); }
+    .base { position: absolute; z-index: 1; width: 122px; height: 14px; top: 254px;
+      left: calc(50% - 61px); background: #a6b7a9; border-radius: 50%; }
+    .scene-label { position: absolute; top: 18px; left: 22px; color: #dee6d9; font-size: 12px; }
+    .controls { padding: 26px; display: grid; gap: 24px; }
+    .power-row { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
+    #status { margin: 0; font-weight: 600; }
+    button { padding: 12px 20px; background: #293c37; color: white; border: 0;
+      border-radius: 999px; font: inherit; cursor: pointer; white-space: nowrap; }
+    button[aria-pressed="true"] { background: #b7cca6; color: #203229; }
+    label { display: block; font-weight: 600; margin-bottom: 8px; }
+    input[type="range"] { width: 100%; accent-color: #496a48; }
+    select { width: 100%; padding: 12px; border: 1px solid #b8c2b3; border-radius: 10px;
+      background: white; color: #293c37; font: inherit; }
+    input:disabled, select:disabled { opacity: .45; cursor: not-allowed; }
+    :focus-visible { outline: 3px solid #bc7930; outline-offset: 4px; }
+    .note { font-size: 13px; color: #667163; margin: 0; }
+    .values { margin: 18px 0 0; font-size: 13px; color: #58665f; }
+    @media (max-width: 480px) { body { padding: 22px 14px; } h1 { font-size: 36px; }
+      .controls { padding: 20px; } .power-row { align-items: flex-start; } }
+    @media (prefers-reduced-motion: reduce) { .glow { transition: none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">An everyday appliance / computational model</div>
+    <h1>A little light.</h1>
+    <p class="intro">Switch on the lamp, adjust its brightness, and choose a light color.</p>
+    <div class="panel">
+      <div class="scene" id="scene" role="img" aria-label="Desk lamp, off">
+        <span class="scene-label">DESK LAMP</span>
+        <div class="glow"></div><div class="stem"></div><div class="shade"></div>
+        <div class="bulb"></div><div class="base"></div>
+      </div>
+      <div class="controls">
+        <div class="power-row">
+          <p id="status" role="status">Lamp is off</p>
+          <button id="powerButton" type="button" aria-pressed="false">Turn on</button>
+        </div>
+        <div>
+          <label for="brightness">Brightness: <output id="brightnessValue" for="brightness">70%</output></label>
+          <input id="brightness" type="range" min="1" max="100" value="70" disabled>
+        </div>
+        <div>
+          <label for="lightMode">Light color</label>
+          <select id="lightMode" disabled>
+            <option value="warm">Warm</option><option value="cool">Cool</option>
+          </select>
+        </div>
+        <p class="note">Switch the lamp on to adjust it. Your settings are kept when you switch it off and on during this session.</p>
+      </div>
+    </div>
+    <p class="values" id="stateValues"></p>
+  </main>
+  <script>
+    // 1. VARIABLES: these three values describe the lamp's current state.
+    let isOn = false;
+    let brightness = 70;
+    let lightMode = "warm";
+
+    // 2. HTML ELEMENTS: connect JavaScript to the controls and feedback.
+    const powerButton = document.getElementById("powerButton");
+    const brightnessInput = document.getElementById("brightness");
+    const modeSelect = document.getElementById("lightMode");
+    const brightnessValue = document.getElementById("brightnessValue");
+    const statusText = document.getElementById("status");
+    const scene = document.getElementById("scene");
+    const stateValues = document.getElementById("stateValues");
+
+    // 3. CONTROL FLOW + VISUAL FEEDBACK: display the current state.
+    function updateLamp() {
+      if (isOn === false) {
+        scene.style.setProperty("--glow-opacity", "0");
+        statusText.textContent = "Lamp is off";
+        scene.setAttribute("aria-label", "Desk lamp, off");
+      } else {
+        scene.style.setProperty("--glow-opacity", brightness / 100);
+
+        if (lightMode === "warm") {
+          scene.style.setProperty("--light-color", "#ffce77");
+          statusText.textContent = "On · Warm light · " + brightness + "%";
+        } else {
+          scene.style.setProperty("--light-color", "#c3e4ff");
+          statusText.textContent = "On · Cool light · " + brightness + "%";
+        }
+
+        scene.setAttribute("aria-label", "Desk lamp, " + lightMode + " light, " + brightness + "% brightness");
+      }
+
+      powerButton.textContent = isOn ? "Turn off" : "Turn on";
+      powerButton.setAttribute("aria-pressed", String(isOn));
+      brightnessInput.disabled = !isOn;
+      modeSelect.disabled = !isOn;
+      brightnessValue.textContent = brightness + "%";
+      stateValues.textContent = "State: isOn = " + isOn + " | brightness = " + brightness + " | lightMode = " + lightMode;
+    }
+
+    // 4. EVENTS: an action changes a variable, then updates the display.
+    powerButton.addEventListener("click", function () {
+      isOn = !isOn; // Switch false to true, or true to false.
+      updateLamp();
+    });
+
+    brightnessInput.addEventListener("input", function () {
+      brightness = Number(brightnessInput.value); // A slider returns text; convert it to a number.
+      updateLamp();
+    });
+
+    modeSelect.addEventListener("change", function () {
+      lightMode = modeSelect.value;
+      updateLamp();
+    });
+
+    // 5. INITIAL DISPLAY: show the starting state when the page loads.
+    updateLamp();
+  </script>
+</body>
+</html>
